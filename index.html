@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pixel Check</title>
+<style>
+  :root{
+    --cyan:#79c0c3; --orange:#e9660a; --ink:#111827; --line:#e5e7eb; --err:#b91c1c;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:system-ui, Segoe UI, Roboto, Arial;
+    background: linear-gradient(135deg, #e9fbff 0%, #fef6ee 100%);
+    color:var(--ink);
+  }
+  .wrap{max-width:820px;margin:24px auto;padding:0 16px}
+  .card{background:#fff;border-radius:16px;box-shadow:0 10px 24px rgba(0,0,0,.12);padding:20px}
+  h1{margin:0 0 14px;font-size:38px;text-align:center;color:var(--orange);letter-spacing:.3px}
+  .table{width:100%;border-collapse:collapse;margin-top:8px}
+  .table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  .table th{font-size:14px}
+  .rowhead{width:210px;font-weight:700}
+  input[type="number"], select{
+    width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px; outline:none; background:#fff;
+  }
+  .time-grid{display:grid;grid-template-columns:1fr 150px;gap:10px}
+  .hint{font-size:12px;opacity:.75;margin-top:8px}
+  .btn{
+    margin-top:14px;width:100%;padding:12px;border:0;border-radius:10px;
+    background:var(--orange);color:#fff;font-weight:800;font-size:16px;cursor:pointer;transition:.2s;
+  }
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .out{margin-top:16px;border:2px solid var(--line);border-radius:12px;padding:22px;text-align:center;background:#fff}
+  .big{font-size:44px;font-weight:900;letter-spacing:.5px}
+  .yes{color:var(--cyan)}
+  .no{color:var(--orange)}
+  .err{color:var(--err); font-size:13px; margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Are The Pixels Firing?</h1>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Activity time</th>
+          <th>Users</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rowhead">Lead Segment</td>
+          <td>
+            <div class="time-grid">
+              <input id="leadTimeVal" type="number" min="0" step="1" autocomplete="off">
+              <select id="leadTimeUnit" aria-label="Lead time unit">
+                <option value="minutes">minutes</option>
+                <option value="days">days</option>
+                <option value="weeks">weeks</option>
+                <option value="months">months</option>
+              </select>
+            </div>
+          </td>
+          <td><input id="leadUsers" type="number" min="0" step="1" inputmode="numeric" autocomplete="off"></td>
+        </tr>
+
+        <tr>
+          <td class="rowhead">Universal Segment</td>
+          <td>
+            <div class="time-grid">
+              <input id="uniTimeVal" type="number" min="0" step="1" autocomplete="off">
+              <select id="uniTimeUnit" aria-label="Universal time unit">
+                <option value="minutes">minutes</option>
+                <option value="days">days</option>
+                <option value="weeks">weeks</option>
+                <option value="months">months</option>
+              </select>
+            </div>
+          </td>
+          <td><input id="uniUsers" type="number" min="0" step="1" inputmode="numeric" autocomplete="off"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="hint">Time accepts minutes, days, weeks, months.</div>
+
+    <div id="msg" class="err" style="display:none"></div>
+
+    <button id="checkBtn" class="btn" onclick="check()" disabled>Check</button>
+    <div id="out" class="out" style="display:none" aria-live="polite"></div>
+  </div>
+</div>
+
+<script>
+function toMinutes(value, unit){
+  const n = +value;
+  if(!isFinite(n)) return NaN;
+  switch(unit){
+    case 'minutes': return n;
+    case 'days':    return n * 1440;
+    case 'weeks':   return n * 10080;     // 7 * 1440
+    case 'months':  return n * 43200;     // 30 * 1440 (simple month)
+    default:        return NaN;
+  }
+}
+
+// Enable button only when all fields have values
+const ids = ['leadTimeVal','leadTimeUnit','leadUsers','uniTimeVal','uniTimeUnit','uniUsers'];
+ids.forEach(id => document.getElementById(id).addEventListener('input', validate));
+ids.forEach(id => document.getElementById(id).addEventListener('change', validate));
+
+function validate(){
+  const leadTimeVal = document.getElementById('leadTimeVal').value;
+  const leadUsers   = document.getElementById('leadUsers').value;
+  const uniTimeVal  = document.getElementById('uniTimeVal').value;
+  const uniUsers    = document.getElementById('uniUsers').value;
+
+  const allFilled = leadTimeVal !== '' && leadUsers !== '' && uniTimeVal !== '' && uniUsers !== '';
+  document.getElementById('checkBtn').disabled = !allFilled;
+
+  document.getElementById('msg').style.display = allFilled ? 'none' : 'block';
+  document.getElementById('msg').textContent = allFilled ? '' : 'Please enter both times and both user counts.';
+}
+
+function check(){
+  const leadTime  = toMinutes(document.getElementById('leadTimeVal').value, document.getElementById('leadTimeUnit').value);
+  const uniTime   = toMinutes(document.getElementById('uniTimeVal').value,  document.getElementById('uniTimeUnit').value);
+  const leadUsers = +document.getElementById('leadUsers').value;
+  const uniUsers  = +document.getElementById('uniUsers').value;
+
+  // Rules: Universal must be more recent AND have more users than Lead
+  const activityOK = isFinite(uniTime) && isFinite(leadTime) && uniTime < leadTime;
+  const usersOK    = isFinite(uniUsers) && isFinite(leadUsers) && uniUsers > leadUsers;
+
+  const ok = activityOK && usersOK;
+
+  const out = document.getElementById('out');
+  out.style.display = 'block';
+  out.innerHTML = `<div class="big ${ok ? 'yes' : 'no'}">${ok ? '🎉 YES 🎉' : '❌ NO ❌'}</div>`;
+}
+</script>
+</body>
+</html>
